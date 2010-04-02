@@ -1,58 +1,42 @@
-require 'pstore'
+require 'dm-core'
+require 'dm-timestamps'
 require 'md5'
 require 'json'
 
 module Dashboard
   class Project
-    class << self
-      def init_store(env)
-        @store = PStore.new(File.dirname(__FILE__)+'/dashboard-'+ env +'.pstore')
+    include DataMapper::Resource
+    property :name,            String, :key => true
+    property :author,          String
+    property :status,          String
+    property :author_gravatar, String
+    property :updated_at,      DateTime
+    
+    def self.create_or_update(params)
+      name    = params[:project]
+      author  = params[:author]
+      status  = params[:status]
+      
+      project = Project.get(name)
+      if project.nil?
+        project = Project.create(:name => name,
+                                 :author => author, :status => status)
+      else
+        project.update(:author => author, :status => status)
       end
-
-      def store
-        @store
-      end
-
-      def all
-        projects = {}
-        store.transaction do
-          store.roots.each do |name|
-            projects[name] = store[name]
-          end
-        end
-        projects.sort
-      end
-
-      def save(project)
-        store.transaction do
-          store[project.name] = project
-        end
-      end
+      project.author_gravatar = project.gravatar_for_author
+      project.save
+      project
     end
-
-    attr_reader :name, :author, :status, :author_gravatar
-
-    def <=>(other)
-      self.name <=> other.name
-    end
-
-    def initialize(params)
-      @name = params['project']
-      @author = params['author']
-      @status = params['status']
-
-      if (params['author'] && params['author'].size > 0)
-        @author_gravatar = gravatar_from(params['author'])
-      end
-    end
-
-    def gravatar_from(author)
+    
+    def gravatar_for_author
+      return if author.nil? || author.size == 0
       "http://www.gravatar.com/avatar/#{MD5::md5(author.match(/<(.*)>/)[1].gsub(' ', '+'))}?s=50"
     end
-
+    
     def to_json(*a)
       {
-        'json_class'   => self.class.name,
+        'json_class' => self.class.name,
         'name' => name,
         'author' => author,
         'status' => status, 

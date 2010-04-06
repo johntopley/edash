@@ -7,10 +7,10 @@ require 'project'
 
 module Dashboard
   class Server < Sinatra::Base
-
     set :static, true
     set :public, 'public'
     set :haml, { :format => :html5 }
+    set :socket_port, 8080
 
     before do
       headers 'Content-Type' => 'text/html; charset=utf-8'
@@ -35,7 +35,7 @@ module Dashboard
     post '/build/?' do
       project = Project.new(params)
       Project.save(project)
-      Dashboard::Client.send_message(request.host, project.to_json)
+      Dashboard::Client.send_message(request.host, options.socket_port, project.to_json)
     end
 
     get '/main.css' do
